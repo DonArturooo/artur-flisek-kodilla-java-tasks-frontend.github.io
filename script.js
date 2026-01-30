@@ -1,11 +1,27 @@
 $(document).ready(function() {
 
     const apiRoot = 'https://artur-flisek-kodilla-java-tasks.onrender.com/v1/tasks';
+    const trelloApiRoot = 'https://artur-flisek-kodilla-java-tasks.onrender.com/v1/trello';
     const datatableRowTemplate = $('[data-datatable-row-template]').children()[0];
-    const tasksContainer = $('[data-tasks-container]');
+    const $tasksContainer = $('[data-tasks-container]');
+    const availableBoards = {};
+    const availableTasks = {};
 
     // init
     getAllTasks();
+
+    function getAllAvailableBoards(callback, callbackArgs) {
+        const requestUrl = trelloApiRoot + '/boards';
+
+        $.ajax({
+            url: requestUrl,
+            method: 'GET',
+            contentType: 'application/json',
+            success: function (boards) {
+                callback(callbackArgs, boards);
+            }
+        });
+    }
 
     function createElement(data) {
         const element = $(datatableRowTemplate).clone();
@@ -20,10 +36,30 @@ $(document).ready(function() {
         return element;
     }
 
-    function handleDatatableRender(data) {
-        tasksContainer.empty();
-        data.forEach(function(task) {
-            createElement(task).appendTo(tasksContainer);
+    function prepareBoardOrListSelectOptions(availableChoices) {
+        return availableChoices.map(function (choice) {
+            return $('<option>')
+                .addClass('crud-select__option')
+                .val(choice.id)
+                .text(choice.name || 'Unknown name');
+        });
+    }
+
+    function handleDatatableRender(taskData, boards) {
+        $tasksContainer.empty();
+        boards.forEach(board => {
+            availableBoards[board.id] = board;
+        });
+
+        taskData.forEach(function (task) {
+            const $datatableRowEl = createElement(task);
+            const $availableBoardsOptionElements = prepareBoardOrListSelectOptions(boards);
+
+            $datatableRowEl.find('[data-board-name-select]')
+                .append($availableBoardsOptionElements);
+
+            $datatableRowEl
+                .appendTo($tasksContainer);
         });
     }
 
@@ -31,7 +67,14 @@ $(document).ready(function() {
         $.ajax({
             url: apiRoot,
             method: 'GET',
-            success: handleDatatableRender
+            contentType: "application/json",
+            success: function (tasks) {
+                tasks.forEach(task => {
+                    availableTasks[task.id] = task;
+                });
+
+                getAllAvailableBoards(handleDatatableRender, tasks);
+            }
         });
     }
 
@@ -52,7 +95,7 @@ $(document).ready(function() {
                 title: taskTitle,
                 content: taskContent
             }),
-            success: function(data) {
+            success: function (data) {
                 parentEl.attr('data-task-id', data.id).toggleClass('datatable__row--editing');
                 parentEl.find('[data-task-name-paragraph]').text(taskTitle);
                 parentEl.find('[data-task-content-paragraph]').text(taskContent);
@@ -67,8 +110,10 @@ $(document).ready(function() {
         $.ajax({
             url: apiRoot + '/' + taskId,
             method: 'DELETE',
-            success: function() {
-                parentEl.slideUp(400, function() { parentEl.remove(); });
+            success: function () {
+                parentEl.slideUp(400, function () {
+                    parentEl.remove();
+                });
             }
         })
     }
@@ -89,8 +134,8 @@ $(document).ready(function() {
                 title: taskTitle,
                 content: taskContent
             }),
-            complete: function(data) {
-                if(data.status === 200) {
+            complete: function (data) {
+                if (data.status === 200) {
                     getAllTasks();
                 }
             }
@@ -108,10 +153,51 @@ $(document).ready(function() {
         parentEl.find('[data-task-content-input]').val(taskContent);
     }
 
+    function handleBoardNameSelect(event) {
+        const $changedSelectEl = $(event.target);
+        const selectedBoardId = $changedSelectEl.val();
+        const $listNameSelectEl = $changedSelectEl.siblings('[data-list-name-select]');
+        const preparedListOptions = prepareBoardOrListSelectOptions(availableBoards[selectedBoardId].lists);
+
+        $listNameSelectEl.empty().append(preparedListOptions);
+    }
+
+    function handleCardCreationRequest(event) {
+        const requestUrl = trelloApiRoot + '/cards';
+        const $relatedTaskRow = $(event.target).parents('[data-task-id]');
+        const relatedTaskId = $relatedTaskRow.attr('data-task-id');
+        const relatedTask = availableTasks[relatedTaskId];
+        const selectedListId = $relatedTaskRow.find('[data-list-name-select]').val();
+
+        if (!selectedListId) {
+            alert('You have to select a board and a list first!');
+            return;
+        }
+
+        $.ajax({
+            url: requestUrl,
+            method: 'POST',
+            processData: false,
+            contentType: "application/json; charset=utf-8",
+            dataType: 'json',
+            data: JSON.stringify({
+                name: relatedTask.title,
+                description: relatedTask.content,
+                listId: selectedListId
+            }),
+            success: function (data) {
+                console.log('Card created - ' + data.shortUrl);
+                alert('Card created - ' + data.shortUrl);
+            }
+        });
+    }
+
     $('[data-task-add-form]').on('submit', handleTaskSubmitRequest);
 
-    tasksContainer.on('click','[data-task-edit-button]', toggleEditingState);
-    tasksContainer.on('click','[data-task-edit-abort-button]', toggleEditingState);
-    tasksContainer.on('click','[data-task-submit-update-button]', handleTaskUpdateRequest);
-    tasksContainer.on('click','[data-task-delete-button]', handleTaskDeleteRequest);
+    $tasksContainer.on('change', '[data-board-name-select]', handleBoardNameSelect);
+    $tasksContainer.on('click', '[data-trello-card-creation-trigger]', handleCardCreationRequest);
+    $tasksContainer.on('click', '[data-task-edit-button]', toggleEditingState);
+    $tasksContainer.on('click', '[data-task-edit-abort-button]', toggleEditingState);
+    $tasksContainer.on('click', '[data-task-submit-update-button]', handleTaskUpdateRequest);
+    $tasksContainer.on('click', '[data-task-delete-button]', handleTaskDeleteRequest);
 });
