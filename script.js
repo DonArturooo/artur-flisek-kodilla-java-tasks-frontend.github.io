@@ -1,5 +1,8 @@
 $(document).ready(function() {
 
+    // local
+    // const apiRoot = 'http://localhost:8080/v1/tasks';
+    // const trelloApiRoot = 'http://localhost:8080/v1/trello';
     const apiRoot = 'https://artur-flisek-kodilla-java-tasks.onrender.com/v1/tasks';
     const trelloApiRoot = 'https://artur-flisek-kodilla-java-tasks.onrender.com/v1/trello';
     const datatableRowTemplate = $('[data-datatable-row-template]').children()[0];
