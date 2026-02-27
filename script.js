@@ -82,7 +82,7 @@ $(document).ready(function() {
     }
 
     function handleTaskUpdateRequest() {
-        const parentEl = $(this).parent().parent();
+        const parentEl = $(this).parents('[data-task-id]');
         const taskId = parentEl.attr('data-task-id');
         const taskTitle = parentEl.find('[data-task-name-input]').val();
         const taskContent = parentEl.find('[data-task-content-input]').val();
@@ -107,7 +107,7 @@ $(document).ready(function() {
     }
 
     function handleTaskDeleteRequest() {
-        const parentEl = $(this).parent().parent();
+        const parentEl = $(this).parents('[data-task-id]');
         const taskId = parentEl.attr('data-task-id');
 
         $.ajax({
@@ -146,7 +146,7 @@ $(document).ready(function() {
     }
 
     function toggleEditingState() {
-        const parentEl = $(this).parent().parent();
+        const parentEl = $(this).parents('[data-task-id]');
         parentEl.toggleClass('datatable__row--editing');
 
         const taskTitle = parentEl.find('[data-task-name-paragraph]').text();
